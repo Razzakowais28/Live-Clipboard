@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, LogIn } from 'lucide-react';
+import { Plus, LogIn, Clipboard } from 'lucide-react';
 import { createRoom, joinRoom } from '../lib/clipboard';
+import { useToast } from '../context/ToastContext';
 
 export default function Home() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [roomInput, setRoomInput] = useState('');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -18,9 +20,11 @@ export default function Home() {
 
     if (createError || !room) {
       setError('Failed to create room. Please try again.');
+      showToast('Could not create room', 'error');
       return;
     }
 
+    showToast('Room created');
     navigate(`/room/${room.room_code}`);
   };
 
@@ -39,11 +43,13 @@ export default function Home() {
 
     if (joinError) {
       setError('Failed to join room. Please try again.');
+      showToast('Join failed', 'error');
       return;
     }
 
     if (!room) {
       setError('Room not found. Check the code and try again.');
+      showToast('Room not found', 'error');
       return;
     }
 
@@ -53,6 +59,9 @@ export default function Home() {
   return (
     <div className="page home-page">
       <div className="home-card card">
+        <div className="home-logo">
+          <Clipboard size={28} />
+        </div>
         <h1 className="home-title">Live Clipboard</h1>
         <p className="home-subtitle">
           Share text, images, and files instantly across devices.

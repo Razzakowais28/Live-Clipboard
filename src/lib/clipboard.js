@@ -4,14 +4,19 @@ import { buildStoragePath } from '../utils/fileHelpers';
 
 const BUCKET = 'clipboard-files';
 
-export async function createRoom() {
+export async function createRoom(expiresInHours = 24) {
   let roomCode = generateRoomCode();
   let attempts = 0;
+  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
 
   while (attempts < 5) {
     const { data, error } = await supabase
       .from('clipboard_rooms')
-      .insert({ room_code: roomCode, title: `Room ${roomCode}` })
+      .insert({
+        room_code: roomCode,
+        title: `Room ${roomCode}`,
+        expires_at: expiresAt,
+      })
       .select()
       .single();
 
@@ -101,6 +106,44 @@ export async function uploadFile(roomCode, file) {
     .single();
 
   return { item: data, error };
+}
+
+export async function updateRoomExpiry(roomCode, expiresInHours) {
+  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('clipboard_rooms')
+    .update({ expires_at: expiresAt })
+    .eq('room_code', roomCode.toUpperCase())
+    .select()
+    .single();
+
+  return { room: data, error };
+}
+
+export function joinRoomPresence(roomCode, onCountChange) {
+  const code = roomCode.toUpperCase();
+  const channel = supabase.channel(`presence-${code}`, {
+    config: { presence: { key: crypto.randomUUID() } },
+  });
+
+  channel
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const count = Object.values(state).reduce(
+        (total, presences) => total + presences.length,
+        0
+      );
+      onCountChange(count);
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({ online_at: new Date().toISOString() });
+      }
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export function joinLiveText(roomCode, { onText, getCurrentText }) {
