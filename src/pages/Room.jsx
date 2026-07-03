@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Copy, Share2, Send, Check } from 'lucide-react';
+import { ArrowLeft, Copy, Share2, Check, Radio } from 'lucide-react';
 import {
   fetchRoom,
   fetchClipboardItems,
-  addTextItem,
   uploadFile,
   subscribeToRoom,
+  joinLiveText,
 } from '../lib/clipboard';
 import { copyToClipboard } from '../utils/fileHelpers';
 import ClipboardItem from '../components/ClipboardItem';
@@ -35,12 +35,15 @@ export default function Room() {
   const [loading, setLoading] = useState(true);
   const [roomExists, setRoomExists] = useState(false);
   const [items, setItems] = useState([]);
-  const [text, setText] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [liveText, setLiveText] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [codeCopied, setCodeCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [textCopied, setTextCopied] = useState(false);
+
+  const liveTextRef = useRef('');
+  const sendTextRef = useRef(null);
 
   const roomUrl = `${window.location.origin}/room/${code}`;
 
@@ -80,6 +83,25 @@ export default function Room() {
   useEffect(() => {
     if (!roomExists) return;
 
+    const { sendText, unsubscribe } = joinLiveText(code, {
+      onText: (incoming) => {
+        liveTextRef.current = incoming;
+        setLiveText(incoming);
+      },
+      getCurrentText: () => liveTextRef.current,
+    });
+
+    sendTextRef.current = sendText;
+
+    return () => {
+      sendTextRef.current = null;
+      unsubscribe();
+    };
+  }, [code, roomExists]);
+
+  useEffect(() => {
+    if (!roomExists) return;
+
     const unsubscribe = subscribeToRoom(code, {
       onInsert: (newItem) => {
         setItems((prev) => upsertItem(prev, newItem));
@@ -97,10 +119,26 @@ export default function Room() {
     return unsubscribe;
   }, [code, roomExists]);
 
+  const handleLiveTextChange = (e) => {
+    const value = e.target.value;
+    liveTextRef.current = value;
+    setLiveText(value);
+    if (sendTextRef.current) {
+      sendTextRef.current(value);
+    }
+  };
+
   const handleCopyCode = async () => {
     await copyToClipboard(code);
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
+  };
+
+  const handleCopyText = async () => {
+    if (!liveText) return;
+    await copyToClipboard(liveText);
+    setTextCopied(true);
+    setTimeout(() => setTextCopied(false), 2000);
   };
 
   const handleShare = async () => {
@@ -120,25 +158,6 @@ export default function Room() {
     await copyToClipboard(roomUrl);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
-  };
-
-  const handleAddText = async (e) => {
-    e.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed) return;
-
-    setError('');
-    setSaving(true);
-    const { item, error: saveError } = await addTextItem(code, trimmed);
-    setSaving(false);
-
-    if (saveError || !item) {
-      setError('Failed to save text. Please try again.');
-      return;
-    }
-
-    setText('');
-    setItems((prev) => upsertItem(prev, item));
   };
 
   const handleUpload = async (file) => {
@@ -204,32 +223,37 @@ export default function Room() {
       </header>
 
       <section className="compose card">
-        <form onSubmit={handleAddText} className="compose-form">
-          <textarea
-            className="textarea"
-            placeholder="Type or paste text to share..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={4}
-            disabled={saving || uploading}
-          />
-          <div className="compose-actions">
-            <FileUpload onUpload={handleUpload} uploading={uploading} disabled={saving} />
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving || uploading || !text.trim()}
-            >
-              <Send size={16} />
-              {saving ? 'Saving...' : 'Add'}
-            </button>
-          </div>
-        </form>
+        <div className="live-header">
+          <span className="live-badge">
+            <Radio size={14} />
+            Live
+          </span>
+          <span className="live-hint">Type here — everyone in this room sees it instantly.</span>
+        </div>
+        <textarea
+          className="textarea"
+          placeholder="Start typing to share with everyone..."
+          value={liveText}
+          onChange={handleLiveTextChange}
+          rows={6}
+        />
+        <div className="compose-actions">
+          <FileUpload onUpload={handleUpload} uploading={uploading} />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleCopyText}
+            disabled={!liveText}
+          >
+            {textCopied ? <Check size={16} /> : <Copy size={16} />}
+            {textCopied ? 'Copied!' : 'Copy Text'}
+          </button>
+        </div>
         {error && <p className="error-message">{error}</p>}
       </section>
 
       <section className="clipboard-list">
-        <h2 className="section-title">Clipboard</h2>
+        <h2 className="section-title">Files</h2>
         {items.length === 0 ? (
           <EmptyState />
         ) : (

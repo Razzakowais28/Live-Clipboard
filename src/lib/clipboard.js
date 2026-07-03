@@ -103,6 +103,39 @@ export async function uploadFile(roomCode, file) {
   return { item: data, error };
 }
 
+export function joinLiveText(roomCode, { onText, getCurrentText }) {
+  const code = roomCode.toUpperCase();
+  const channel = supabase.channel(`live-${code}`, {
+    config: { broadcast: { self: false } },
+  });
+
+  channel
+    .on('broadcast', { event: 'text' }, ({ payload }) => {
+      onText(payload.text);
+    })
+    .on('broadcast', { event: 'request-state' }, () => {
+      const current = getCurrentText();
+      if (current) {
+        channel.send({ type: 'broadcast', event: 'text', payload: { text: current } });
+      }
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({ type: 'broadcast', event: 'request-state', payload: {} });
+      }
+    });
+
+  const sendText = (text) => {
+    channel.send({ type: 'broadcast', event: 'text', payload: { text } });
+  };
+
+  const unsubscribe = () => {
+    supabase.removeChannel(channel);
+  };
+
+  return { sendText, unsubscribe };
+}
+
 export function subscribeToRoom(roomCode, callbacks) {
   const code = roomCode.toUpperCase();
   const channel = supabase

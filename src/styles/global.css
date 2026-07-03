@@ -178,6 +178,53 @@ textarea {
   gap: 0.75rem;
 }
 
+.compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.live-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.live-badge svg {
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.live-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 .compose-actions {
   display: flex;
   align-items: center;
