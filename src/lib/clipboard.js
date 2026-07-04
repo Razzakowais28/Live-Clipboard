@@ -4,10 +4,13 @@ import { buildStoragePath } from '../utils/fileHelpers';
 
 const BUCKET = 'clipboard-files';
 
-export async function createRoom(expiresInHours = 24) {
+export async function createRoom(expiryOption = 'never') {
   let roomCode = generateRoomCode();
   let attempts = 0;
-  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
+  const expiresAt =
+    expiryOption === 'never'
+      ? null
+      : new Date(Date.now() + Number(expiryOption) * 60 * 60 * 1000).toISOString();
 
   while (attempts < 5) {
     const { data, error } = await supabase
@@ -108,8 +111,12 @@ export async function uploadFile(roomCode, file) {
   return { item: data, error };
 }
 
-export async function updateRoomExpiry(roomCode, expiresInHours) {
-  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
+export async function updateRoomExpiry(roomCode, option) {
+  const expiresAt =
+    option === 'never'
+      ? null
+      : new Date(Date.now() + Number(option) * 60 * 60 * 1000).toISOString();
+
   const { data, error } = await supabase
     .from('clipboard_rooms')
     .update({ expires_at: expiresAt })

@@ -37,11 +37,13 @@ import EmptyState from '../components/EmptyState';
 import HistoryTabs from '../components/HistoryTabs';
 import QRModal from '../components/QRModal';
 
-const EXPIRY_OPTIONS = [
-  { label: '1 hour', hours: 1 },
-  { label: '24 hours', hours: 24 },
-  { label: '7 days', hours: 168 },
-];
+import {
+  EXPIRY_OPTIONS,
+  deriveExpiryOption,
+  formatExpiryLabel,
+  computeExpiresAt,
+  getExpiryToastMessage,
+} from '../utils/expiryHelpers';
 
 function sortItems(items) {
   return [...items].sort(
@@ -55,17 +57,6 @@ function upsertItem(items, newItem) {
     return sortItems(items.map((i) => (i.id === newItem.id ? newItem : i)));
   }
   return sortItems([newItem, ...items]);
-}
-
-function formatExpiry(expiresAt) {
-  if (!expiresAt) return null;
-  const diff = new Date(expiresAt) - Date.now();
-  if (diff <= 0) return 'Expired';
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  if (hours < 1) return 'Expires in < 1 hour';
-  if (hours < 24) return `Expires in ${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `Expires in ${days}d`;
 }
 
 export default function Room() {
@@ -85,7 +76,8 @@ export default function Room() {
   const [activeTab, setActiveTab] = useState('all');
   const [deviceCount, setDeviceCount] = useState(1);
   const [pinnedIds, setPinnedIds] = useState(() => loadPinnedIds(code));
-  const [expiryHours, setExpiryHours] = useState(24);
+  const [expiryOption, setExpiryOption] = useState('never');
+  const [updatingExpiry, setUpdatingExpiry] = useState(false);
 
   const liveTextRef = useRef('');
   const sendTextRef = useRef(null);
@@ -113,6 +105,7 @@ export default function Room() {
 
     setRoom(fetchedRoom);
     setRoomExists(true);
+    setExpiryOption(deriveExpiryOption(fetchedRoom));
 
     const { items: fetchedItems, error: itemsError } = await fetchClipboardItems(code);
     if (itemsError) {
@@ -284,15 +277,27 @@ export default function Room() {
   };
 
   const handleExpiryChange = async (e) => {
-    const hours = Number(e.target.value);
-    setExpiryHours(hours);
-    const { room: updated, error: expiryError } = await updateRoomExpiry(code, hours);
+    const value = e.target.value;
+    const previousOption = expiryOption;
+    const previousExpiresAt = room?.expires_at;
+
+    setExpiryOption(value);
+    setUpdatingExpiry(true);
+    setRoom((prev) => ({ ...prev, expires_at: computeExpiresAt(value) }));
+
+    const { room: updated, error: expiryError } = await updateRoomExpiry(code, value);
+    setUpdatingExpiry(false);
+
     if (expiryError || !updated) {
-      showToast('Could not update expiry', 'error');
+      setExpiryOption(previousOption);
+      setRoom((prev) => ({ ...prev, expires_at: previousExpiresAt }));
+      showToast('Could not update expiry — run supabase/policies.sql in Supabase', 'error');
       return;
     }
+
     setRoom(updated);
-    showToast(`Room expires in ${EXPIRY_OPTIONS.find((o) => o.hours === hours)?.label}`);
+    setExpiryOption(deriveExpiryOption(updated));
+    showToast(getExpiryToastMessage(value));
   };
 
   const tabCounts = useMemo(() => {
@@ -332,7 +337,8 @@ export default function Room() {
     );
   }
 
-  const expiryLabel = formatExpiry(room?.expires_at);
+  const expiryLabel = formatExpiryLabel(room?.expires_at);
+  const isPermanent = expiryOption === 'never';
 
   return (
     <div className="page room-page">
@@ -348,19 +354,20 @@ export default function Room() {
           </div>
         </div>
         <div className="room-header__meta">
-          <span className="room-meta-badge">
+          <span className={`room-meta-badge ${isPermanent ? 'room-meta-badge--permanent' : ''}`}>
             <Clock size={13} />
-            Temporary room
+            {isPermanent ? 'Permanent room' : 'Temporary room'}
           </span>
-          {expiryLabel && <span className="room-meta-text">{expiryLabel}</span>}
+          <span className="room-meta-text">{expiryLabel}</span>
           <select
             className="expiry-select"
-            value={expiryHours}
+            value={expiryOption}
             onChange={handleExpiryChange}
+            disabled={updatingExpiry}
             aria-label="Room expiry"
           >
             {EXPIRY_OPTIONS.map((opt) => (
-              <option key={opt.hours} value={opt.hours}>
+              <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
@@ -401,7 +408,7 @@ export default function Room() {
           <textarea
             ref={textareaRef}
             className="textarea"
-            placeholder="Start typing to share with everyone..."
+            placeholder="Type or paste here — it syncs live to everyone in this room"
             value={liveText}
             onChange={handleLiveTextChange}
             rows={5}

@@ -202,6 +202,16 @@ select {
   cursor: pointer;
 }
 
+.expiry-select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.room-meta-badge--permanent {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
 .room-header__actions {
   display: flex;
   gap: 0.4rem;
@@ -594,11 +604,30 @@ select {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+.input::placeholder,
+.textarea::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
 .input:focus,
 .textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.input {
+  text-align: center;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.input::placeholder {
+  letter-spacing: normal;
+  text-transform: none;
+  font-weight: 400;
 }
 
 .textarea {
