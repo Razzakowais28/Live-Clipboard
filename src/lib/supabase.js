@@ -1,19 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Live Clipboard's Supabase project. The publishable key is meant to be public;
+// access is controlled by the RLS policies in supabase/schema.sql.
+const SUPABASE_URL = 'https://pldbofrdwqmgmoxvogjq.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_WUrRqVl4yOPXvSegrkYv7g_YNit5VIU';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
-
-if (!isSupabaseConfigured) {
-  console.error(
-    '[Live Clipboard] Missing Supabase environment variables. ' +
-      'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your hosting provider ' +
-      '(e.g. Vercel Project Settings > Environment Variables) and redeploy.'
-  );
-}
-
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key'
-);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);

@@ -64,7 +64,7 @@ src/
 ├── main.jsx                 # App entry
 ├── App.jsx                  # Routes
 ├── lib/
-│   ├── supabase.js          # Supabase client (anon key only)
+│   ├── supabase.js          # Supabase client (publishable key only)
 │   └── clipboard.js         # Rooms, items, upload, realtime
 ├── pages/
 │   ├── Home.jsx             # Create / join room
@@ -88,7 +88,7 @@ src/
     └── global.css
 
 supabase/
-└── policies.sql             # RLS policies for Supabase
+└── schema.sql               # Tables, RLS, realtime, storage
 ```
 
 ---
@@ -108,48 +108,14 @@ cd Live-Clipboard
 npm install
 ```
 
-### 2. Environment variables
+### 2. Supabase
 
-Copy `.env.example` to `.env` and add your Supabase credentials:
+The app is already connected to its Supabase project (see `src/lib/supabase.js`) —
+no environment variables needed. To point it at your own project, run
+[`supabase/schema.sql`](supabase/schema.sql) in that project's SQL Editor and replace
+the URL and publishable key in `src/lib/supabase.js`.
 
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-> Use only the **anon public key** in the frontend. Never expose the service role key.
-
-### 3. Supabase setup
-
-Create these tables in your Supabase project:
-
-**`clipboard_rooms`**
-| Column | Type |
-|--------|------|
-| id | uuid (primary key) |
-| room_code | text (unique) |
-| title | text |
-| created_at | timestamptz |
-| expires_at | timestamptz |
-
-**`clipboard_items`**
-| Column | Type |
-|--------|------|
-| id | uuid (primary key) |
-| room_code | text |
-| type | text (`text`, `image`, `file`) |
-| content | text |
-| file_url | text |
-| file_name | text |
-| file_type | text |
-| created_at | timestamptz |
-| updated_at | timestamptz |
-
-**Storage bucket:** `clipboard-files` (public read for file URLs)
-
-**RLS & Realtime:** Run the SQL in [`supabase/policies.sql`](supabase/policies.sql) in the Supabase SQL Editor.
-
-### 4. Run locally
+### 3. Run locally
 
 ```bash
 npm run dev
@@ -175,12 +141,8 @@ Open [http://localhost:5173](http://localhost:5173)
 
 1. Push repo to GitHub
 2. Import project in [Vercel](https://vercel.com)
-3. Add environment variables:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-4. Build command: `npm run build`
-5. Output directory: `dist`
-6. Redeploy after adding env vars
+3. Build command: `npm run build`
+4. Output directory: `dist`
 
 `vercel.json` is included for SPA routing.
 
@@ -203,21 +165,12 @@ npm run build
 
 ---
 
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon/public key |
-
----
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| White screen on deploy | Set `VITE_SUPABASE_*` in Vercel and redeploy |
-| Room expiry not saving | Run `supabase/policies.sql` (UPDATE policy) |
+| Room expiry not saving | Run `supabase/schema.sql` (UPDATE policy) |
 | Files not syncing | Enable Realtime on `clipboard_items` + RLS SELECT/INSERT |
 | Upload fails | Check `clipboard-files` bucket permissions |
 
