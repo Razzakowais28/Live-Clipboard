@@ -291,7 +291,7 @@ export default function Room() {
     if (expiryError || !updated) {
       setExpiryOption(previousOption);
       setRoom((prev) => ({ ...prev, expires_at: previousExpiresAt }));
-      showToast('Could not update expiry — run supabase/policies.sql in Supabase', 'error');
+      showToast('Could not update expiry', 'error');
       return;
     }
 
